@@ -70,7 +70,7 @@
     </style>
 </head>
 <body>
-    <div class="instructions">Artwork will be placed at the center of the screen</div>
+    <div class="instructions">Tap on the screen to place the artwork</div>
 
     <a-scene
         embedded
@@ -84,7 +84,6 @@
     </a-scene>
 
     <div class="ar-controls">
-        <button class="ar-button" id="place-btn">Place Artwork</button>
         <button class="ar-button" id="resize-up">Larger</button>
         <button class="ar-button" id="resize-down">Smaller</button>
         <button class="ar-button" id="rotate-btn">Rotate</button>
@@ -104,7 +103,6 @@
             let artwork = null;
             let scale = 1;
             let rotation = 0;
-            const initialDistance = -1; // Closer initial distance from camera
 
             // Initialize camera
             navigator.mediaDevices.getUserMedia({
@@ -119,25 +117,34 @@
             });
 
             // Create and position artwork initially
-            function createArtwork() {
+            function createArtwork(position) {
                 artwork = document.createElement('a-image');
                 artwork.setAttribute('src', artworkUrl);
-                artwork.setAttribute('position', `0 0 ${initialDistance}`); // Center position
+                artwork.setAttribute('position', position); // Set position based on touch
                 artwork.setAttribute('scale', `${scale} ${scale} ${scale}`);
                 artwork.setAttribute('rotation', '0 0 0');
-                artwork.setAttribute('width', '1'); // Set width for square/rectangle
-                artwork.setAttribute('height', '1'); // Set height for square/rectangle
                 document.getElementById('artwork-container').appendChild(artwork);
             }
 
-            // Create artwork immediately
-            createArtwork();
+            // Event listener for placing artwork on touch
+            document.querySelector('a-scene').addEventListener('click', function(event) {
+                const touchX = event.clientX;
+                const touchY = event.clientY;
 
-            // Place artwork at the center when the button is clicked
-            document.getElementById('place-btn').addEventListener('click', function() {
-                if (artwork) {
-                    artwork.setAttribute('position', `0 0 ${initialDistance}`); // Reset to center
-                }
+                // Convert touch coordinates to AR position
+                const scene = document.querySelector('a-scene');
+                const camera = document.querySelector('a-camera');
+                const cameraPosition = camera.getAttribute('position');
+
+                // Calculate the position in front of the camera based on touch coordinates
+                const position = {
+                    x: (touchX / window.innerWidth) * 2 - 1, // Normalize to -1 to 1
+                    y: (touchY / window.innerHeight) * -2 + 1, // Normalize to -1 to 1
+                    z: cameraPosition.z - 1 // Place it 1 unit in front of the camera
+                };
+
+                // Create artwork at the calculated position
+                createArtwork(`${position.x} ${position.y} ${position.z}`);
             });
 
             // Size controls
@@ -166,7 +173,7 @@
             // Reset position
             document.getElementById('reset-btn').addEventListener('click', function() {
                 if (artwork) {
-                    artwork.setAttribute('position', `0 0 ${initialDistance}`); // Reset to center
+                    artwork.setAttribute('position', `0 0 -1`); // Reset to center
                     artwork.setAttribute('rotation', '0 0 0');
                     scale = 1;
                     rotation = 0;
