@@ -67,33 +67,10 @@
         .a-enter-vr {
             display: none !important;
         }
-
-        .movement-pad {
-            position: fixed;
-            left: 20px;
-            bottom: 100px;
-            width: 150px;
-            height: 150px;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 50%;
-            z-index: 1000;
-            touch-action: none;
-        }
-
-        .movement-dot {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 20px;
-            height: 20px;
-            background: white;
-            border-radius: 50%;
-        }
     </style>
 </head>
 <body>
-    <div class="instructions">Use the movement pad to position the artwork</div>
+    <div class="instructions">Artwork will be placed at the center of the screen</div>
 
     <a-scene
         embedded
@@ -105,10 +82,6 @@
         <a-entity id="artwork-container"></a-entity>
 
     </a-scene>
-
-    <div class="movement-pad">
-        <div class="movement-dot"></div>
-    </div>
 
     <div class="ar-controls">
         <button class="ar-button" id="place-btn">Place Artwork</button>
@@ -149,7 +122,7 @@
             function createArtwork() {
                 artwork = document.createElement('a-image');
                 artwork.setAttribute('src', artworkUrl);
-                artwork.setAttribute('position', `0 0 ${initialDistance}`);
+                artwork.setAttribute('position', `0 0 ${initialDistance}`); // Center position
                 artwork.setAttribute('scale', `${scale} ${scale} ${scale}`);
                 artwork.setAttribute('rotation', '0 0 0');
                 document.getElementById('artwork-container').appendChild(artwork);
@@ -158,44 +131,12 @@
             // Create artwork immediately
             createArtwork();
 
-            // Movement pad controls
-            const movementPad = document.querySelector('.movement-pad');
-            let isDragging = false;
-
-            function handleMovement(e) {
-                if (!isDragging) return;
-
-                const rect = movementPad.getBoundingClientRect();
-                const centerX = rect.left + rect.width / 2;
-                const centerY = rect.top + rect.height / 2;
-
-                let clientX, clientY;
-                if (e.touches) {
-                    clientX = e.touches[0].clientX;
-                    clientY = e.touches[0].clientY;
-                } else {
-                    clientX = e.clientX;
-                    clientY = e.clientY;
-                }
-
-                const deltaX = (clientX - centerX) / (rect.width / 2);
-                const deltaY = (clientY - centerY) / (rect.height / 2);
-
-                // Update artwork position
+            // Place artwork at the center when the button is clicked
+            document.getElementById('place-btn').addEventListener('click', function() {
                 if (artwork) {
-                    const position = artwork.getAttribute('position');
-                    const newX = position.x + deltaX * 0.5; // Adjust movement sensitivity
-                    const newY = position.y - deltaY * 0.5; // Adjust movement sensitivity
-                    artwork.setAttribute('position', `${newX} ${newY} ${initialDistance}`);
+                    artwork.setAttribute('position', `0 0 ${initialDistance}`); // Reset to center
                 }
-            }
-
-            movementPad.addEventListener('mousedown', () => isDragging = true);
-            movementPad.addEventListener('touchstart', () => isDragging = true);
-            document.addEventListener('mousemove', handleMovement);
-            document.addEventListener('touchmove', handleMovement);
-            document.addEventListener('mouseup', () => isDragging = false);
-            document.addEventListener('touchend', () => isDragging = false);
+            });
 
             // Size controls
             document.getElementById('resize-up').addEventListener('click', function() {
@@ -223,7 +164,7 @@
             // Reset position
             document.getElementById('reset-btn').addEventListener('click', function() {
                 if (artwork) {
-                    artwork.setAttribute('position', `0 0 ${initialDistance}`);
+                    artwork.setAttribute('position', `0 0 ${initialDistance}`); // Reset to center
                     artwork.setAttribute('rotation', '0 0 0');
                     scale = 1;
                     rotation = 0;
