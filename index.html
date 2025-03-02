@@ -4,17 +4,171 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AR Artwork Viewer</title>
-    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-    <link rel="stylesheet" href="style.css">
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+        .ar-overlay {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            z-index: 1000;
+        }
+        .controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        .control-btn {
+            background: rgba(255, 255, 255, 0.8);
+            border: none;
+            padding: 10px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #placeArtwork {
+            background: #4CAF50;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
-    <div class="ar-instructions">
-        <p>Point your camera at the HIRO marker</p>
-        <a href="https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/images/HIRO.jpg" 
-           target="_blank">View Marker</a>
+    <!-- AR Scene -->
+    <a-scene
+        vr-mode-ui="enabled: false"
+        embedded
+        arjs='sourceType: webcam; videoTexture: true; debugUIEnabled: false;'
+        renderer='antialias: true; alpha: true'>
+
+        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+        
+        <!-- Artwork entity will be added here by script -->
+        <a-entity id="artwork-container"></a-entity>
+    </a-scene>
+
+    <!-- UI Overlay -->
+    <div class="ar-overlay">
+        <p>Move your phone to scan the environment</p>
+        <button id="placeArtwork">Place Artwork Here</button>
     </div>
-    <div id="ar-scene"></div>
-    <script src="script.js"></script>
+
+    <!-- Controls -->
+    <div class="controls">
+        <button class="control-btn" id="moveLeft">←</button>
+        <button class="control-btn" id="moveRight">→</button>
+        <button class="control-btn" id="moveUp">↑</button>
+        <button class="control-btn" id="moveDown">↓</button>
+        <button class="control-btn" id="scaleUp">+</button>
+        <button class="control-btn" id="scaleDown">-</button>
+    </div>
+
+    <script>
+        window.onload = function() {
+            // Request camera permission first
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ video: true })
+                    .then(function(stream) {
+                        initAR();
+                    })
+                    .catch(function(error) {
+                        alert('Camera access is required for AR. Please allow camera access.');
+                    });
+            }
+        };
+
+        function initAR() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const artworkUrl = urlParams.get('artwork');
+            if (!artworkUrl) {
+                alert('No artwork URL provided');
+                return;
+            }
+
+            let artworkPlaced = false;
+            let artwork;
+
+            // Place artwork button handler
+            document.getElementById('placeArtwork').addEventListener('click', function() {
+                if (!artworkPlaced) {
+            // Create artwork entity
+                    artwork = document.createElement('a-image');
+                    artwork.setAttribute('src', artworkUrl);
+                    artwork.setAttribute('position', '0 1.5 -2'); // Place in front of camera
+                    artwork.setAttribute('width', '1');
+                    artwork.setAttribute('height', '1');
+                    artwork.setAttribute('look-at', '[camera]');
+                    
+                    document.getElementById('artwork-container').appendChild(artwork);
+                    artworkPlaced = true;
+                    
+                    // Update UI
+                    this.textContent = 'Reposition Artwork';
+                }
+            });
+
+            // Control handlers
+            const moveStep = 0.1;
+            const scaleStep = 0.1;
+
+            document.getElementById('moveLeft').addEventListener('click', () => {
+                if (artwork) {
+                    const pos = artwork.getAttribute('position');
+                    artwork.setAttribute('position', `${pos.x - moveStep} ${pos.y} ${pos.z}`);
+                }
+            });
+
+            document.getElementById('moveRight').addEventListener('click', () => {
+                if (artwork) {
+                    const pos = artwork.getAttribute('position');
+                    artwork.setAttribute('position', `${pos.x + moveStep} ${pos.y} ${pos.z}`);
+                }
+            });
+
+            document.getElementById('moveUp').addEventListener('click', () => {
+                if (artwork) {
+                    const pos = artwork.getAttribute('position');
+                    artwork.setAttribute('position', `${pos.x} ${pos.y + moveStep} ${pos.z}`);
+                }
+            });
+
+            document.getElementById('moveDown').addEventListener('click', () => {
+                if (artwork) {
+                    const pos = artwork.getAttribute('position');
+                    artwork.setAttribute('position', `${pos.x} ${pos.y - moveStep} ${pos.z}`);
+                }
+            });
+
+            document.getElementById('scaleUp').addEventListener('click', () => {
+                if (artwork) {
+                    const scale = artwork.getAttribute('scale') || {x: 1, y: 1, z: 1};
+                    artwork.setAttribute('scale', `${scale.x + scaleStep} ${scale.y + scaleStep} 1`);
+                }
+            });
+
+            document.getElementById('scaleDown').addEventListener('click', () => {
+                if (artwork) {
+                    const scale = artwork.getAttribute('scale') || {x: 1, y: 1, z: 1};
+                    if (scale.x > scaleStep) {
+                        artwork.setAttribute('scale', `${scale.x - scaleStep} ${scale.y - scaleStep} 1`);
+                    }
+                }
+            });
+        }
+    </script>
 </body>
 </html> 
