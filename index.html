@@ -161,8 +161,6 @@
             const movementPad = document.querySelector('.movement-pad');
             const movementDot = document.querySelector('.movement-dot');
             let isDragging = false;
-            let currentX = 0;
-            let currentY = 0;
 
             function handleMovement(e) {
                 if (!isDragging) return;
@@ -186,9 +184,9 @@
                 // Update artwork position
                 if (artwork) {
                     const position = artwork.getAttribute('position');
-                    currentX = Math.max(-3, Math.min(3, position.x + deltaX * 0.01));
-                    currentY = Math.max(-3, Math.min(3, position.y - deltaY * 0.01));
-                    artwork.setAttribute('position', `${currentX} ${currentY} ${initialDistance}`);
+                    const newX = position.x + deltaX * 0.1; // Adjust movement sensitivity
+                    const newY = position.y - deltaY * 0.1; // Adjust movement sensitivity
+                    artwork.setAttribute('position', `${newX} ${newY} ${initialDistance}`);
                 }
             }
 
@@ -225,8 +223,6 @@
             // Reset position
             document.getElementById('reset-btn').addEventListener('click', function() {
                 if (artwork) {
-                    currentX = 0;
-                    currentY = 0;
                     artwork.setAttribute('position', `0 0 ${initialDistance}`);
                     artwork.setAttribute('rotation', '0 0 0');
                     scale = 1;
