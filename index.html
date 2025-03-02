@@ -6,7 +6,6 @@
     <title>AR Artwork Viewer</title>
     <script src="https://aframe.io/releases/1.4.1/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/three.js/build/ar-threex.js"></script>
     <style>
         body {
             margin: 0;
@@ -65,43 +64,36 @@
             max-width: 300px;
         }
 
-        .placement-indicator {
+        .crosshair {
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 40px;
-            height: 40px;
-            border: 2px solid #4CAF50;
-            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            pointer-events: none;
             z-index: 1000;
-            pointer-events: none;
         }
 
-        .placement-indicator::after {
-            content: '+';
+        .crosshair::before,
+        .crosshair::after {
+            content: '';
             position: absolute;
-            top: 50%;
+            background: #4CAF50;
+        }
+
+        .crosshair::before {
+            width: 2px;
+            height: 20px;
             left: 50%;
-            transform: translate(-50%, -50%);
-            color: #4CAF50;
-            font-size: 24px;
+            transform: translateX(-50%);
         }
 
-        .reference-points {
-            position: fixed;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 999;
-        }
-
-        .reference-point {
-            position: absolute;
-            width: 8px;
-            height: 8px;
-            background: rgba(76, 175, 80, 0.6);
-            border-radius: 50%;
+        .crosshair::after {
+            width: 20px;
+            height: 2px;
+            top: 50%;
+            transform: translateY(-50%);
         }
 
         .a-enter-vr {
@@ -110,22 +102,17 @@
     </style>
 </head>
 <body>
-    <div class="instructions">Move your device to detect surfaces</div>
-    <div class="placement-indicator"></div>
-    <div class="reference-points"></div>
+    <div class="instructions">Tap 'Place' to position artwork where the crosshair points</div>
+    <div class="crosshair"></div>
 
     <a-scene
         embedded
-        arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+        arjs="sourceType: webcam; debugUIEnabled: false;"
         renderer="antialias: true; alpha: true"
         vr-mode-ui="enabled: false">
 
-        <a-assets>
-            <img id="artwork" crossorigin="anonymous">
-        </a-assets>
-
+        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
         <a-entity id="artwork-container"></a-entity>
-        <a-entity camera></a-entity>
 
     </a-scene>
 
@@ -146,76 +133,50 @@
                 return;
             }
 
-            // Set artwork source
-            document.getElementById('artwork').src = artworkUrl;
-
             let artwork = null;
             let scale = 1;
             let rotation = 0;
 
-            // Create reference points grid
-            const referencePointsContainer = document.querySelector('.reference-points');
-            const gridSize = 20;
-            for (let i = 0; i < gridSize; i++) {
-                for (let j = 0; j < gridSize; j++) {
-                    const point = document.createElement('div');
-                    point.className = 'reference-point';
-                    point.style.left = `${(i * 100 / (gridSize - 1))}%`;
-                    point.style.top = `${(j * 100 / (gridSize - 1))}%`;
-                    referencePointsContainer.appendChild(point);
-                }
-            }
-
-            // Initialize camera with full viewport
-            const constraints = {
+            // Initialize camera
+            navigator.mediaDevices.getUserMedia({
                 video: {
                     facingMode: 'environment',
                     width: { ideal: window.innerWidth },
                     height: { ideal: window.innerHeight }
                 }
-            };
+            }).catch(error => {
+                console.error('Camera error:', error);
+                alert('Please allow camera access to use AR features');
+            });
 
-            navigator.mediaDevices.getUserMedia(constraints)
-                .then(stream => {
-                    const video = document.querySelector('video');
-                    if (video) {
-                        video.srcObject = stream;
-                        video.style.width = '100vw';
-                        video.style.height = '100vh';
-                        video.style.objectFit = 'cover';
-                    }
-                })
-                .catch(error => {
-                    console.error('Camera error:', error);
-                    alert('Please allow camera access to use AR features');
-                });
-
+            // Place artwork in 3D space
             document.getElementById('place-btn').addEventListener('click', function() {
-                const camera = document.querySelector('[camera]');
+                const camera = document.querySelector('a-camera');
                 const position = camera.getAttribute('position');
                 const rotation = camera.getAttribute('rotation');
                 
                 if (!artwork) {
+                    // Create new artwork
                     artwork = document.createElement('a-image');
-                    artwork.setAttribute('src', '#artwork');
-                    artwork.setAttribute('position', `0 0 -3`);
+                    artwork.setAttribute('src', artworkUrl);
                     artwork.setAttribute('scale', `${scale} ${scale} ${scale}`);
-                    artwork.setAttribute('look-at', '[camera]');
-                    
                     document.getElementById('artwork-container').appendChild(artwork);
-                    this.textContent = 'Reposition';
-                    document.querySelector('.instructions').textContent = 'Use controls to adjust artwork';
-                } else {
-                    // Calculate position in front of camera
-                    const distance = -3;
-                    const radians = rotation.y * (Math.PI / 180);
-                    const x = position.x + (distance * Math.sin(radians));
-                    const z = position.z - (distance * Math.cos(radians));
-                    
-                    artwork.setAttribute('position', `${x} ${position.y} ${z}`);
+                    this.textContent = 'Move';
+                    document.querySelector('.instructions').textContent = 'Use buttons to adjust size and rotation';
                 }
+
+                // Calculate position 2 meters in front of camera
+                const distance = 2;
+                const radians = (rotation.y * Math.PI) / 180;
+                const x = position.x - (Math.sin(radians) * distance);
+                const y = position.y;
+                const z = position.z - (Math.cos(radians) * distance);
+
+                artwork.setAttribute('position', `${x} ${y} ${z}`);
+                artwork.setAttribute('rotation', `0 ${rotation.y} 0`);
             });
 
+            // Size controls
             document.getElementById('resize-up').addEventListener('click', function() {
                 if (artwork) {
                     scale *= 1.2;
@@ -230,14 +191,16 @@
                 }
             });
 
+            // Rotation control
             document.getElementById('rotate-btn').addEventListener('click', function() {
                 if (artwork) {
                     rotation += 45;
-                    artwork.setAttribute('rotation', `0 ${rotation} 0`);
+                    const currentRotation = artwork.getAttribute('rotation');
+                    artwork.setAttribute('rotation', `${currentRotation.x} ${rotation} ${currentRotation.z}`);
                 }
             });
 
-            // Handle device orientation changes
+            // Handle orientation changes
             window.addEventListener('orientationchange', function() {
                 setTimeout(() => {
                     const scene = document.querySelector('a-scene');
