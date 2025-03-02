@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>AR Artwork Viewer</title>
     <script src="https://aframe.io/releases/1.4.1/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
@@ -10,6 +10,11 @@
         body {
             margin: 0;
             overflow: hidden;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
         }
         .ar-controls {
             position: fixed;
@@ -23,6 +28,7 @@
             z-index: 1000;
             display: flex;
             gap: 10px;
+            font-size: 14px;
         }
         .ar-button {
             background: #4CAF50;
@@ -31,6 +37,7 @@
             padding: 8px 16px;
             border-radius: 4px;
             cursor: pointer;
+            font-size: 14px;
         }
         .instructions {
             position: fixed;
@@ -43,6 +50,9 @@
             border-radius: 8px;
             z-index: 1000;
             text-align: center;
+            font-size: 14px;
+            width: 80%;
+            max-width: 300px;
         }
     </style>
 </head>
@@ -51,11 +61,15 @@
 
     <a-scene
         embedded
-        arjs='sourceType: webcam; debugUIEnabled: false;'
-        renderer="antialias: true; logarithmicDepthBuffer: true;"
+        arjs='sourceType: webcam; 
+              debugUIEnabled: false;
+              sourceWidth: window.innerWidth;
+              sourceHeight: window.innerHeight;
+              displayWidth: window.innerWidth;
+              displayHeight: window.innerHeight;'
         vr-mode-ui="enabled: false">
 
-        <a-entity camera></a-entity>
+        <a-camera gps-camera rotation-reader></a-camera>
         <a-entity id="artwork-container"></a-entity>
 
     </a-scene>
@@ -67,8 +81,18 @@
     </div>
 
     <script>
+        // Prevent zoom
+        document.addEventListener('touchmove', function(e) {
+            if (e.scale !== 1) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
         window.addEventListener('load', function() {
-            // Get artwork URL from query parameters
+            // Set viewport size
+            const viewport = document.querySelector('meta[name=viewport]');
+            viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+
             const urlParams = new URLSearchParams(window.location.search);
             const artworkUrl = decodeURIComponent(urlParams.get('artwork'));
 
@@ -80,7 +104,7 @@
             let artwork = null;
             let scale = 1;
 
-            // Request camera with basic settings
+            // Basic camera initialization
             navigator.mediaDevices.getUserMedia({
                 video: {
                     facingMode: "environment",
@@ -88,7 +112,7 @@
                     height: { ideal: window.innerHeight }
                 }
             }).catch(error => {
-                console.error('Camera access error:', error);
+                console.error('Camera error:', error);
                 alert('Please allow camera access to use AR features');
             });
 
