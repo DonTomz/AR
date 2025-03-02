@@ -53,16 +53,12 @@
 
     <a-scene
         embedded
-        arjs='sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3; sourceWidth:1280; sourceHeight:960; displayWidth: 1280; displayHeight: 960;'
+        arjs='sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;'
         vr-mode-ui="enabled: false"
-        renderer="logarithmicDepthBuffer: true;"
-        inspector="url: https://cdn.jsdelivr.net/gh/aframevr/aframe-inspector@master/dist/aframe-inspector.min.js">
+        renderer="logarithmicDepthBuffer: true;">
 
         <a-entity camera></a-entity>
-
-        <a-entity id="artwork-container" position="0 0 0">
-            <!-- Artwork will be added here dynamically -->
-        </a-entity>
+        <a-entity id="artwork-container" position="0 0 0"></a-entity>
 
     </a-scene>
 
@@ -73,47 +69,83 @@
     </div>
 
     <script>
-        window.addEventListener('load', function() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const artworkUrl = decodeURIComponent(urlParams.get('artwork'));
+        window.addEventListener('load', async function() {
+            try {
+                // First, enumerate all available cameras
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const cameras = devices.filter(device => device.kind === 'videoinput');
+                
+                // Camera constraints for ultra-wide/minimum zoom
+                const constraints = {
+                    video: {
+                        facingMode: { exact: "environment" },
+                        width: { ideal: window.innerWidth },
+                        height: { ideal: window.innerHeight },
+                        zoom: 1, // Request minimum zoom
+                        focusMode: 'continuous', // Continuous auto-focus
+                        // Try to get ultra-wide camera if available
+                        advanced: [{
+                            facingMode: "environment",
+                            zoom: 1,
+                            focusMode: 'continuous'
+                        }]
+                    }
+                };
 
+                // Try to get the camera stream
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                
+                // Get video track and apply additional constraints
+                const videoTrack = stream.getVideoTracks()[0];
+                if (videoTrack) {
+                    const capabilities = videoTrack.getCapabilities();
+                    if (capabilities.zoom) {
+                        await videoTrack.applyConstraints({
+                            advanced: [{
+                                zoom: capabilities.zoom.min // Set to minimum zoom
+                            }]
+                        });
+                    }
+                }
+
+                document.querySelector('.loading').style.display = 'none';
+                initAR(new URLSearchParams(window.location.search).get('artwork'));
+
+            } catch (err) {
+                console.error('Camera error:', err);
+                // Fallback to basic camera access
+                try {
+                    await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: "environment",
+                            width: { ideal: window.innerWidth },
+                            height: { ideal: window.innerHeight }
+                        }
+                    });
+                    document.querySelector('.loading').style.display = 'none';
+                    initAR(new URLSearchParams(window.location.search).get('artwork'));
+                } catch (fallbackErr) {
+                    document.querySelector('.loading').textContent = 
+                        'Unable to access camera. Please ensure camera permissions are granted.';
+                }
+            }
+        });
+
+        function initAR(artworkUrl) {
             if (!artworkUrl) {
                 alert('No artwork URL provided');
                 return;
             }
 
-            navigator.mediaDevices.getUserMedia({
-                video: {
-                    facingMode: { exact: "environment" },
-                    width: { ideal: 1280 },
-                    height: { ideal: 960 }
-                }
-            }).then(function(stream) {
-                document.querySelector('.loading').style.display = 'none';
-                initAR(artworkUrl);
-            }).catch(function(err) {
-                return navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: "environment",
-                        width: { ideal: 1280 },
-                        height: { ideal: 960 }
-                    }
-                }).then(function(stream) {
-                    document.querySelector('.loading').style.display = 'none';
-                    initAR(artworkUrl);
-                });
-            });
-        });
-
-        function initAR(artworkUrl) {
+            const decodedArtworkUrl = decodeURIComponent(artworkUrl);
             let artwork = null;
             let scale = 1;
 
             document.getElementById('place-btn').addEventListener('click', function() {
                 if (!artwork) {
                     artwork = document.createElement('a-image');
-                    artwork.setAttribute('src', artworkUrl);
-                    artwork.setAttribute('position', '0 0 -1');
+                    artwork.setAttribute('src', decodedArtworkUrl);
+                    artwork.setAttribute('position', '0 0 -2');
                     artwork.setAttribute('scale', `${scale} ${scale} ${scale}`);
                     artwork.setAttribute('look-at', '[camera]');
                     
@@ -122,7 +154,7 @@
                 } else {
                     const camera = document.querySelector('[camera]');
                     const position = camera.getAttribute('position');
-                    artwork.setAttribute('position', `${position.x} ${position.y} ${position.z - 1}`);
+                    artwork.setAttribute('position', `${position.x} ${position.y} ${position.z - 2}`);
                 }
             });
 
