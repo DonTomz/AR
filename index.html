@@ -9,9 +9,16 @@
     <style>
         body {
             margin: 0;
+            padding: 0;
             overflow: hidden;
+            background: black;
         }
-        .ar-overlay {
+        #camera-feed {
+            width: 100vw;
+            height: 100vh;
+            object-fit: cover;
+        }
+        .overlay {
             position: fixed;
             bottom: 20px;
             left: 50%;
@@ -22,6 +29,14 @@
             border-radius: 8px;
             text-align: center;
             z-index: 1000;
+        }
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            text-align: center;
         }
         .controls {
             position: fixed;
@@ -48,6 +63,12 @@
     </style>
 </head>
 <body>
+    <div class="loading">Requesting camera access...</div>
+    <video id="camera-feed" autoplay playsinline></video>
+    <div class="overlay">
+        <p>Camera is active. AR features loading...</p>
+    </div>
+
     <!-- AR Scene -->
     <a-scene
         vr-mode-ui="enabled: false"
@@ -61,12 +82,6 @@
         <a-entity id="artwork-container"></a-entity>
     </a-scene>
 
-    <!-- UI Overlay -->
-    <div class="ar-overlay">
-        <p>Move your phone to scan the environment</p>
-        <button id="placeArtwork">Place Artwork Here</button>
-    </div>
-
     <!-- Controls -->
     <div class="controls">
         <button class="control-btn" id="moveLeft">←</button>
@@ -78,26 +93,82 @@
     </div>
 
     <script>
-        window.onload = function() {
-            // Request camera permission first
-            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                navigator.mediaDevices.getUserMedia({ video: true })
-                    .then(function(stream) {
-                        initAR();
-                    })
-                    .catch(function(error) {
-                        alert('Camera access is required for AR. Please allow camera access.');
-                    });
-            }
-        };
+        document.addEventListener('DOMContentLoaded', function() {
+            // Specifically request the back camera
+            const constraints = {
+                video: {
+                    facingMode: { exact: "environment" }, // This specifically requests the back camera
+                    width: { ideal: window.innerWidth },
+                    height: { ideal: window.innerHeight }
+                }
+            };
+
+            // Request camera access
+            navigator.mediaDevices.getUserMedia(constraints)
+                .then(function(stream) {
+                    const video = document.getElementById('camera-feed');
+                    video.srcObject = stream;
+                    document.querySelector('.loading').style.display = 'none';
+                    
+                    // Log success
+                    console.log('Back camera accessed successfully');
+                    
+                    // Once camera is ready, initialize AR features
+                    initAR();
+                })
+                .catch(function(err) {
+                    console.error('Camera access error:', err);
+                    // If back camera fails, try without "exact" requirement
+                    const fallbackConstraints = {
+                        video: {
+                            facingMode: "environment",
+                            width: { ideal: window.innerWidth },
+                            height: { ideal: window.innerHeight }
+                        }
+                    };
+                    
+                    return navigator.mediaDevices.getUserMedia(fallbackConstraints)
+                        .then(function(stream) {
+                            const video = document.getElementById('camera-feed');
+                            video.srcObject = stream;
+                            document.querySelector('.loading').style.display = 'none';
+                            initAR();
+                        })
+                        .catch(function(fallbackErr) {
+                            document.querySelector('.loading').innerHTML = 
+                                'Unable to access camera. Please ensure camera permissions are granted and try again.';
+                            console.error('Fallback camera access error:', fallbackErr);
+                        });
+                });
+        });
 
         function initAR() {
+            // Get artwork URL from query parameters
             const urlParams = new URLSearchParams(window.location.search);
             const artworkUrl = urlParams.get('artwork');
+            
             if (!artworkUrl) {
-                alert('No artwork URL provided');
+                document.querySelector('.overlay').innerHTML = 'No artwork URL provided';
                 return;
             }
+
+            // Load the artwork image
+            const img = new Image();
+            img.src = artworkUrl;
+            img.onload = function() {
+                document.querySelector('.overlay').innerHTML = `
+                    <p>Camera active - Artwork loaded</p>
+                    <button onclick="placeArtwork()" style="
+                        padding: 10px 20px;
+                        background: #4CAF50;
+                        border: none;
+                        color: white;
+                        border-radius: 5px;
+                        margin-top: 10px;
+                        cursor: pointer;
+                    ">Place Artwork</button>
+                `;
+            };
 
             let artworkPlaced = false;
             let artwork;
@@ -169,6 +240,19 @@
                 }
             });
         }
+
+        function placeArtwork() {
+            // Add your AR placement logic here
+            document.querySelector('.overlay').innerHTML = `
+                <p>Use pinch gestures to resize</p>
+                <p>Drag to reposition</p>
+            `;
+        }
+
+        // Handle orientation changes
+        window.addEventListener('orientationchange', function() {
+            location.reload(); // Reload to adjust camera feed
+        });
     </script>
 </body>
 </html> 
