@@ -111,6 +111,7 @@
     </div>
 
     <div class="ar-controls">
+        <button class="ar-button" id="place-btn">Place Artwork</button>
         <button class="ar-button" id="resize-up">Larger</button>
         <button class="ar-button" id="resize-down">Smaller</button>
         <button class="ar-button" id="rotate-btn">Rotate</button>
@@ -159,7 +160,6 @@
 
             // Movement pad controls
             const movementPad = document.querySelector('.movement-pad');
-            const movementDot = document.querySelector('.movement-dot');
             let isDragging = false;
 
             function handleMovement(e) {
@@ -184,8 +184,8 @@
                 // Update artwork position
                 if (artwork) {
                     const position = artwork.getAttribute('position');
-                    const newX = position.x + deltaX * 0.1; // Adjust movement sensitivity
-                    const newY = position.y - deltaY * 0.1; // Adjust movement sensitivity
+                    const newX = position.x + deltaX * 0.5; // Adjust movement sensitivity
+                    const newY = position.y - deltaY * 0.5; // Adjust movement sensitivity
                     artwork.setAttribute('position', `${newX} ${newY} ${initialDistance}`);
                 }
             }
