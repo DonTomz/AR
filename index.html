@@ -64,46 +64,36 @@
             max-width: 300px;
         }
 
-        .crosshair {
+        .a-enter-vr {
+            display: none !important;
+        }
+
+        .movement-pad {
             position: fixed;
+            left: 20px;
+            bottom: 100px;
+            width: 150px;
+            height: 150px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 50%;
+            z-index: 1000;
+            touch-action: none;
+        }
+
+        .movement-dot {
+            position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             width: 20px;
             height: 20px;
-            pointer-events: none;
-            z-index: 1000;
-        }
-
-        .crosshair::before,
-        .crosshair::after {
-            content: '';
-            position: absolute;
-            background: #4CAF50;
-        }
-
-        .crosshair::before {
-            width: 2px;
-            height: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-        }
-
-        .crosshair::after {
-            width: 20px;
-            height: 2px;
-            top: 50%;
-            transform: translateY(-50%);
-        }
-
-        .a-enter-vr {
-            display: none !important;
+            background: white;
+            border-radius: 50%;
         }
     </style>
 </head>
 <body>
-    <div class="instructions">Tap 'Place' to position artwork where the crosshair points</div>
-    <div class="crosshair"></div>
+    <div class="instructions">Use the movement pad to position the artwork</div>
 
     <a-scene
         embedded
@@ -116,11 +106,15 @@
 
     </a-scene>
 
+    <div class="movement-pad">
+        <div class="movement-dot"></div>
+    </div>
+
     <div class="ar-controls">
-        <button class="ar-button" id="place-btn">Place Artwork</button>
         <button class="ar-button" id="resize-up">Larger</button>
         <button class="ar-button" id="resize-down">Smaller</button>
         <button class="ar-button" id="rotate-btn">Rotate</button>
+        <button class="ar-button" id="reset-btn">Reset Position</button>
     </div>
 
     <script>
@@ -136,6 +130,7 @@
             let artwork = null;
             let scale = 1;
             let rotation = 0;
+            const initialDistance = -2; // Initial distance from camera
 
             // Initialize camera
             navigator.mediaDevices.getUserMedia({
@@ -149,32 +144,60 @@
                 alert('Please allow camera access to use AR features');
             });
 
-            // Place artwork in 3D space
-            document.getElementById('place-btn').addEventListener('click', function() {
-                const camera = document.querySelector('a-camera');
-                const position = camera.getAttribute('position');
-                const rotation = camera.getAttribute('rotation');
-                
-                if (!artwork) {
-                    // Create new artwork
-                    artwork = document.createElement('a-image');
-                    artwork.setAttribute('src', artworkUrl);
-                    artwork.setAttribute('scale', `${scale} ${scale} ${scale}`);
-                    document.getElementById('artwork-container').appendChild(artwork);
-                    this.textContent = 'Move';
-                    document.querySelector('.instructions').textContent = 'Use buttons to adjust size and rotation';
+            // Create and position artwork initially
+            function createArtwork() {
+                artwork = document.createElement('a-image');
+                artwork.setAttribute('src', artworkUrl);
+                artwork.setAttribute('position', `0 0 ${initialDistance}`);
+                artwork.setAttribute('scale', `${scale} ${scale} ${scale}`);
+                artwork.setAttribute('rotation', '0 0 0');
+                document.getElementById('artwork-container').appendChild(artwork);
+            }
+
+            // Create artwork immediately
+            createArtwork();
+
+            // Movement pad controls
+            const movementPad = document.querySelector('.movement-pad');
+            const movementDot = document.querySelector('.movement-dot');
+            let isDragging = false;
+            let currentX = 0;
+            let currentY = 0;
+
+            function handleMovement(e) {
+                if (!isDragging) return;
+
+                const rect = movementPad.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+
+                let clientX, clientY;
+                if (e.touches) {
+                    clientX = e.touches[0].clientX;
+                    clientY = e.touches[0].clientY;
+                } else {
+                    clientX = e.clientX;
+                    clientY = e.clientY;
                 }
 
-                // Calculate position 2 meters in front of camera
-                const distance = 2;
-                const radians = (rotation.y * Math.PI) / 180;
-                const x = position.x - (Math.sin(radians) * distance);
-                const y = position.y;
-                const z = position.z - (Math.cos(radians) * distance);
+                const deltaX = (clientX - centerX) / (rect.width / 2);
+                const deltaY = (clientY - centerY) / (rect.height / 2);
 
-                artwork.setAttribute('position', `${x} ${y} ${z}`);
-                artwork.setAttribute('rotation', `0 ${rotation.y} 0`);
-            });
+                // Update artwork position
+                if (artwork) {
+                    const position = artwork.getAttribute('position');
+                    currentX = Math.max(-3, Math.min(3, position.x + deltaX * 0.01));
+                    currentY = Math.max(-3, Math.min(3, position.y - deltaY * 0.01));
+                    artwork.setAttribute('position', `${currentX} ${currentY} ${initialDistance}`);
+                }
+            }
+
+            movementPad.addEventListener('mousedown', () => isDragging = true);
+            movementPad.addEventListener('touchstart', () => isDragging = true);
+            document.addEventListener('mousemove', handleMovement);
+            document.addEventListener('touchmove', handleMovement);
+            document.addEventListener('mouseup', () => isDragging = false);
+            document.addEventListener('touchend', () => isDragging = false);
 
             // Size controls
             document.getElementById('resize-up').addEventListener('click', function() {
@@ -195,19 +218,21 @@
             document.getElementById('rotate-btn').addEventListener('click', function() {
                 if (artwork) {
                     rotation += 45;
-                    const currentRotation = artwork.getAttribute('rotation');
-                    artwork.setAttribute('rotation', `${currentRotation.x} ${rotation} ${currentRotation.z}`);
+                    artwork.setAttribute('rotation', `0 ${rotation} 0`);
                 }
             });
 
-            // Handle orientation changes
-            window.addEventListener('orientationchange', function() {
-                setTimeout(() => {
-                    const scene = document.querySelector('a-scene');
-                    if (scene) {
-                        scene.resize();
-                    }
-                }, 200);
+            // Reset position
+            document.getElementById('reset-btn').addEventListener('click', function() {
+                if (artwork) {
+                    currentX = 0;
+                    currentY = 0;
+                    artwork.setAttribute('position', `0 0 ${initialDistance}`);
+                    artwork.setAttribute('rotation', '0 0 0');
+                    scale = 1;
+                    rotation = 0;
+                    artwork.setAttribute('scale', `${scale} ${scale} ${scale}`);
+                }
             });
 
             // Prevent zoom
