@@ -14,8 +14,16 @@
             top: 0;
             left: 0;
             width: 100%;
-            height: 100%;
+            height: 100vh;
+            -webkit-overflow-scrolling: touch;
         }
+
+        .a-canvas {
+            width: 100% !important;
+            height: 100vh !important;
+            position: absolute !important;
+        }
+
         .ar-controls {
             position: fixed;
             bottom: 20px;
@@ -30,6 +38,7 @@
             gap: 10px;
             font-size: 14px;
         }
+
         .ar-button {
             background: #4CAF50;
             border: none;
@@ -39,6 +48,7 @@
             cursor: pointer;
             font-size: 14px;
         }
+
         .instructions {
             position: fixed;
             top: 20px;
@@ -54,6 +64,10 @@
             width: 80%;
             max-width: 300px;
         }
+
+        .a-enter-vr {
+            display: none !important;
+        }
     </style>
 </head>
 <body>
@@ -63,13 +77,14 @@
         embedded
         arjs='sourceType: webcam; 
               debugUIEnabled: false;
-              sourceWidth: window.innerWidth;
-              sourceHeight: window.innerHeight;
-              displayWidth: window.innerWidth;
-              displayHeight: window.innerHeight;'
+              sourceWidth: 1280;
+              sourceHeight: 960;
+              displayWidth: 1280;
+              displayHeight: 960;'
+        renderer="antialias: true; logarithmicDepthBuffer: true;"
         vr-mode-ui="enabled: false">
 
-        <a-camera gps-camera rotation-reader></a-camera>
+        <a-camera position="0 0 0"></a-camera>
         <a-entity id="artwork-container"></a-entity>
 
     </a-scene>
@@ -81,17 +96,13 @@
     </div>
 
     <script>
-        // Prevent zoom
-        document.addEventListener('touchmove', function(e) {
-            if (e.scale !== 1) {
-                e.preventDefault();
-            }
-        }, { passive: false });
-
-        window.addEventListener('load', function() {
-            // Set viewport size
-            const viewport = document.querySelector('meta[name=viewport]');
-            viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+        window.onload = function() {
+            // Prevent zoom
+            document.addEventListener('touchmove', function(e) {
+                if (e.scale !== 1) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
 
             const urlParams = new URLSearchParams(window.location.search);
             const artworkUrl = decodeURIComponent(urlParams.get('artwork'));
@@ -104,7 +115,7 @@
             let artwork = null;
             let scale = 1;
 
-            // Basic camera initialization
+            // Initialize camera with full viewport dimensions
             navigator.mediaDevices.getUserMedia({
                 video: {
                     facingMode: "environment",
@@ -115,6 +126,13 @@
                 console.error('Camera error:', error);
                 alert('Please allow camera access to use AR features');
             });
+
+            // Force canvas to full height
+            const canvas = document.querySelector('.a-canvas');
+            if (canvas) {
+                canvas.style.height = '100vh';
+                canvas.style.width = '100vw';
+            }
 
             document.getElementById('place-btn').addEventListener('click', function() {
                 if (!artwork) {
@@ -147,6 +165,15 @@
                     artwork.setAttribute('scale', `${scale} ${scale} ${scale}`);
                 }
             });
+        };
+
+        // Handle resize
+        window.addEventListener('resize', function() {
+            const canvas = document.querySelector('.a-canvas');
+            if (canvas) {
+                canvas.style.height = '100vh';
+                canvas.style.width = '100vw';
+            }
         });
     </script>
 </body>
