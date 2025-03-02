@@ -128,18 +128,18 @@
 
             // Event listener for placing artwork on touch
             document.querySelector('a-scene').addEventListener('click', function(event) {
-                const touchX = event.clientX;
-                const touchY = event.clientY;
-
-                // Convert touch coordinates to AR position
-                const scene = document.querySelector('a-scene');
+                // Get the camera's position
                 const camera = document.querySelector('a-camera');
                 const cameraPosition = camera.getAttribute('position');
 
                 // Calculate the position in front of the camera based on touch coordinates
+                const touchX = (event.clientX / window.innerWidth) * 2 - 1; // Normalize to -1 to 1
+                const touchY = -(event.clientY / window.innerHeight) * 2 + 1; // Normalize to -1 to 1
+
+                // Set the z position to be in front of the camera
                 const position = {
-                    x: (touchX / window.innerWidth) * 2 - 1, // Normalize to -1 to 1
-                    y: (touchY / window.innerHeight) * -2 + 1, // Normalize to -1 to 1
+                    x: touchX,
+                    y: touchY,
                     z: cameraPosition.z - 1 // Place it 1 unit in front of the camera
                 };
 
