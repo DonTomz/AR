@@ -125,6 +125,8 @@
                 artwork.setAttribute('position', `0 0 ${initialDistance}`); // Center position
                 artwork.setAttribute('scale', `${scale} ${scale} ${scale}`);
                 artwork.setAttribute('rotation', '0 0 0');
+                artwork.setAttribute('width', '1'); // Set width for square/rectangle
+                artwork.setAttribute('height', '1'); // Set height for square/rectangle
                 document.getElementById('artwork-container').appendChild(artwork);
             }
 
