@@ -13,6 +13,17 @@
             width: 100vw;
             height: 100vh;
             overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #000;
+        }
+
+        .loading {
+            color: white;
+            font-size: 24px;
+            position: absolute;
+            z-index: 1000;
         }
 
         .a-canvas {
@@ -70,7 +81,7 @@
     </style>
 </head>
 <body>
-    <div class="instructions">Tap on the screen to place the artwork</div>
+    <div class="loading">Loading AR Environment...</div>
 
     <a-scene
         embedded
@@ -111,16 +122,20 @@
                     width: { ideal: window.innerWidth },
                     height: { ideal: window.innerHeight }
                 }
+            }).then(() => {
+                // Hide loading screen after camera is ready
+                document.querySelector('.loading').style.display = 'none';
+                createArtwork(); // Create artwork after loading
             }).catch(error => {
                 console.error('Camera error:', error);
                 alert('Please allow camera access to use AR features');
             });
 
             // Create and position artwork initially
-            function createArtwork(position) {
+            function createArtwork() {
                 artwork = document.createElement('a-image');
                 artwork.setAttribute('src', artworkUrl);
-                artwork.setAttribute('position', position); // Set position based on touch
+                artwork.setAttribute('position', `0 0 -1`); // Center position in front of the camera
                 artwork.setAttribute('scale', `${scale} ${scale} ${scale}`);
                 artwork.setAttribute('rotation', '0 0 0');
                 document.getElementById('artwork-container').appendChild(artwork);
@@ -144,8 +159,14 @@
                 };
 
                 // Create artwork at the calculated position
-                createArtwork(`${position.x} ${position.y} ${position.z}`);
+                createArtworkAtPosition(`${position.x} ${position.y} ${position.z}`);
             });
+
+            function createArtworkAtPosition(position) {
+                if (artwork) {
+                    artwork.setAttribute('position', position); // Update position
+                }
+            }
 
             // Size controls
             document.getElementById('resize-up').addEventListener('click', function() {
