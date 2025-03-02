@@ -5,20 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AR Artwork Viewer</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     <style>
         body {
             margin: 0;
-            padding: 0;
             overflow: hidden;
-            background: black;
         }
-        #camera-feed {
-            width: 100vw;
-            height: 100vh;
-            object-fit: cover;
-        }
-        .overlay {
+        .ar-overlay {
             position: fixed;
             bottom: 20px;
             left: 50%;
@@ -30,229 +23,147 @@
             text-align: center;
             z-index: 1000;
         }
-        .loading {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: white;
-            text-align: center;
-        }
         .controls {
             position: fixed;
             top: 20px;
             right: 20px;
             z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
         .control-btn {
             background: rgba(255, 255, 255, 0.8);
             border: none;
-            padding: 10px;
-            margin: 5px;
+            padding: 10px 15px;
             border-radius: 5px;
             cursor: pointer;
-        }
-        #placeArtwork {
-            background: #4CAF50;
-            color: white;
-            padding: 12px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
-    <div class="loading">Requesting camera access...</div>
-    <video id="camera-feed" autoplay playsinline></video>
-    <div class="overlay">
-        <p>Camera is active. AR features loading...</p>
-    </div>
-
-    <!-- AR Scene -->
     <a-scene
         vr-mode-ui="enabled: false"
         embedded
-        arjs='sourceType: webcam; videoTexture: true; debugUIEnabled: false;'
+        arjs='sourceType: webcam; debugUIEnabled: false; sourceWidth: 1280; sourceHeight: 960; displayWidth: 1280; displayHeight: 960;'
         renderer='antialias: true; alpha: true'>
 
-        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-        
-        <!-- Artwork entity will be added here by script -->
+        <!-- Camera with position -->
+        <a-entity camera position="0 1.6 0"></a-entity>
+
+        <!-- Artwork container -->
         <a-entity id="artwork-container"></a-entity>
     </a-scene>
 
-    <!-- Controls -->
     <div class="controls">
-        <button class="control-btn" id="moveLeft">←</button>
-        <button class="control-btn" id="moveRight">→</button>
-        <button class="control-btn" id="moveUp">↑</button>
-        <button class="control-btn" id="moveDown">↓</button>
-        <button class="control-btn" id="scaleUp">+</button>
-        <button class="control-btn" id="scaleDown">-</button>
+        <button class="control-btn" id="placeArtwork">Place Artwork</button>
+        <button class="control-btn" id="moveCloser">Move Closer</button>
+        <button class="control-btn" id="moveFarther">Move Away</button>
+        <button class="control-btn" id="moveUp">Move Up</button>
+        <button class="control-btn" id="moveDown">Move Down</button>
+        <button class="control-btn" id="scaleUp">Scale Up</button>
+        <button class="control-btn" id="scaleDown">Scale Down</button>
+    </div>
+
+    <div class="ar-overlay">
+        Point your camera at a wall to place the artwork
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Specifically request the back camera
-            const constraints = {
-                video: {
-                    facingMode: { exact: "environment" }, // This specifically requests the back camera
-                    width: { ideal: window.innerWidth },
-                    height: { ideal: window.innerHeight }
-                }
-            };
-
-            // Request camera access
-            navigator.mediaDevices.getUserMedia(constraints)
-                .then(function(stream) {
-                    const video = document.getElementById('camera-feed');
-                    video.srcObject = stream;
-                    document.querySelector('.loading').style.display = 'none';
-                    
-                    // Log success
-                    console.log('Back camera accessed successfully');
-                    
-                    // Once camera is ready, initialize AR features
-                    initAR();
-                })
-                .catch(function(err) {
-                    console.error('Camera access error:', err);
-                    // If back camera fails, try without "exact" requirement
-                    const fallbackConstraints = {
-                        video: {
-                            facingMode: "environment",
-                            width: { ideal: window.innerWidth },
-                            height: { ideal: window.innerHeight }
-                        }
-                    };
-                    
-                    return navigator.mediaDevices.getUserMedia(fallbackConstraints)
-                        .then(function(stream) {
-                            const video = document.getElementById('camera-feed');
-                            video.srcObject = stream;
-                            document.querySelector('.loading').style.display = 'none';
-                            initAR();
-                        })
-                        .catch(function(fallbackErr) {
-                            document.querySelector('.loading').innerHTML = 
-                                'Unable to access camera. Please ensure camera permissions are granted and try again.';
-                            console.error('Fallback camera access error:', fallbackErr);
-                        });
-                });
-        });
-
-        function initAR() {
+        window.onload = function() {
             // Get artwork URL from query parameters
             const urlParams = new URLSearchParams(window.location.search);
-            const artworkUrl = urlParams.get('artwork');
+            const artworkUrl = decodeURIComponent(urlParams.get('artwork'));
             
             if (!artworkUrl) {
-                document.querySelector('.overlay').innerHTML = 'No artwork URL provided';
+                alert('No artwork URL provided');
                 return;
             }
 
-            // Load the artwork image
-            const img = new Image();
-            img.src = artworkUrl;
-            img.onload = function() {
-                document.querySelector('.overlay').innerHTML = `
-                    <p>Camera active - Artwork loaded</p>
-                    <button onclick="placeArtwork()" style="
-                        padding: 10px 20px;
-                        background: #4CAF50;
-                        border: none;
-                        color: white;
-                        border-radius: 5px;
-                        margin-top: 10px;
-                        cursor: pointer;
-                    ">Place Artwork</button>
-                `;
-            };
+            let artwork = null;
+            let isPlaced = false;
 
-            let artworkPlaced = false;
-            let artwork;
-
-            // Place artwork button handler
-            document.getElementById('placeArtwork').addEventListener('click', function() {
-                if (!artworkPlaced) {
             // Create artwork entity
-                    artwork = document.createElement('a-image');
-                    artwork.setAttribute('src', artworkUrl);
-                    artwork.setAttribute('position', '0 1.5 -2'); // Place in front of camera
-                    artwork.setAttribute('width', '1');
-                    artwork.setAttribute('height', '1');
-                    artwork.setAttribute('look-at', '[camera]');
-                    
-                    document.getElementById('artwork-container').appendChild(artwork);
-                    artworkPlaced = true;
-                    
-                    // Update UI
-                    this.textContent = 'Reposition Artwork';
+            function createArtwork() {
+                artwork = document.createElement('a-image');
+                artwork.setAttribute('src', artworkUrl);
+                artwork.setAttribute('position', '0 1.6 -2'); // Initial position in front of camera
+                artwork.setAttribute('width', '2'); // Initial width
+                artwork.setAttribute('height', '2'); // Initial height
+                artwork.setAttribute('look-at', '[camera]'); // Make artwork face camera
+                
+                document.getElementById('artwork-container').appendChild(artwork);
+                isPlaced = true;
+            }
+
+            // Place artwork button
+            document.getElementById('placeArtwork').addEventListener('click', () => {
+                if (!isPlaced) {
+                    createArtwork();
+                    document.querySelector('.ar-overlay').textContent = 'Use controls to adjust artwork position';
                 }
             });
 
-            // Control handlers
-            const moveStep = 0.1;
-            const scaleStep = 0.1;
-
-            document.getElementById('moveLeft').addEventListener('click', () => {
+            // Movement controls
+            document.getElementById('moveCloser').addEventListener('click', () => {
                 if (artwork) {
-                    const pos = artwork.getAttribute('position');
-                    artwork.setAttribute('position', `${pos.x - moveStep} ${pos.y} ${pos.z}`);
+                    const position = artwork.getAttribute('position');
+                    artwork.setAttribute('position', `${position.x} ${position.y} ${position.z + 0.5}`);
                 }
             });
 
-            document.getElementById('moveRight').addEventListener('click', () => {
+            document.getElementById('moveFarther').addEventListener('click', () => {
                 if (artwork) {
-                    const pos = artwork.getAttribute('position');
-                    artwork.setAttribute('position', `${pos.x + moveStep} ${pos.y} ${pos.z}`);
+                    const position = artwork.getAttribute('position');
+                    artwork.setAttribute('position', `${position.x} ${position.y} ${position.z - 0.5}`);
                 }
             });
 
             document.getElementById('moveUp').addEventListener('click', () => {
                 if (artwork) {
-                    const pos = artwork.getAttribute('position');
-                    artwork.setAttribute('position', `${pos.x} ${pos.y + moveStep} ${pos.z}`);
+                    const position = artwork.getAttribute('position');
+                    artwork.setAttribute('position', `${position.x} ${position.y + 0.5} ${position.z}`);
                 }
             });
 
             document.getElementById('moveDown').addEventListener('click', () => {
                 if (artwork) {
-                    const pos = artwork.getAttribute('position');
-                    artwork.setAttribute('position', `${pos.x} ${pos.y - moveStep} ${pos.z}`);
+                    const position = artwork.getAttribute('position');
+                    artwork.setAttribute('position', `${position.x} ${position.y - 0.5} ${position.z}`);
                 }
             });
 
+            // Scaling controls
             document.getElementById('scaleUp').addEventListener('click', () => {
                 if (artwork) {
                     const scale = artwork.getAttribute('scale') || {x: 1, y: 1, z: 1};
-                    artwork.setAttribute('scale', `${scale.x + scaleStep} ${scale.y + scaleStep} 1`);
+                    artwork.setAttribute('scale', `${scale.x * 1.2} ${scale.y * 1.2} 1`);
                 }
             });
 
             document.getElementById('scaleDown').addEventListener('click', () => {
                 if (artwork) {
                     const scale = artwork.getAttribute('scale') || {x: 1, y: 1, z: 1};
-                    if (scale.x > scaleStep) {
-                        artwork.setAttribute('scale', `${scale.x - scaleStep} ${scale.y - scaleStep} 1`);
-                    }
+                    artwork.setAttribute('scale', `${scale.x * 0.8} ${scale.y * 0.8} 1`);
                 }
             });
-        }
 
-        function placeArtwork() {
-            // Add your AR placement logic here
-            document.querySelector('.overlay').innerHTML = `
-                <p>Use pinch gestures to resize</p>
-                <p>Drag to reposition</p>
-            `;
-        }
-
-        // Handle orientation changes
-        window.addEventListener('orientationchange', function() {
-            location.reload(); // Reload to adjust camera feed
-        });
+            // Request camera permission specifically for back camera
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: { exact: "environment" }
+                    }
+                }).catch(function(err) {
+                    console.error('Camera access error:', err);
+                    // Fallback to any available camera
+                    return navigator.mediaDevices.getUserMedia({
+                        video: true
+                    });
+                });
+            }
+        };
     </script>
 </body>
 </html> 
