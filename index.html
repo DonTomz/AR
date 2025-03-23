@@ -85,13 +85,19 @@
 
     <a-scene
         embedded
-        arjs="sourceType: webcam; debugUIEnabled: false;"
+        arjs="sourceType: webcam; debugUIEnabled: false; sourceWidth: 1080; sourceHeight: 1920;"
         renderer="antialias: true; alpha: true"
         vr-mode-ui="enabled: false">
 
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-        <a-entity id="artwork-container"></a-entity>
-
+        <a-marker preset="hiro" smooth="true" smoothCount="10" smoothTolerance="0.01">
+            <a-image
+                id="artwork"
+                position="0 0 0"
+                rotation="-90 0 0"
+                scale="1 1 1"
+            ></a-image>
+        </a-marker>
     </a-scene>
 
     <div class="ar-controls">
@@ -115,94 +121,89 @@
             let scale = 1;
             let rotation = 0;
 
-            // Initialize camera
+            // Initialize camera with portrait orientation
             navigator.mediaDevices.getUserMedia({
                 video: {
                     facingMode: 'environment',
-                    width: { ideal: window.innerWidth },
-                    height: { ideal: window.innerHeight }
+                    width: { ideal: 1080 },
+                    height: { ideal: 1920 },
+                    aspectRatio: { ideal: 0.5625 } // 9:16 ratio for portrait
                 }
             }).then(() => {
-                // Hide loading screen after camera is ready
                 document.querySelector('.loading').style.display = 'none';
-                createArtwork(); // Create artwork after loading
+                initializeArtwork();
             }).catch(error => {
                 console.error('Camera error:', error);
                 alert('Please allow camera access to use AR features');
             });
 
-            // Create and position artwork initially
-            function createArtwork() {
-                artwork = document.createElement('a-image');
+            function initializeArtwork() {
+                // Get the artwork element
+                artwork = document.querySelector('#artwork');
+                
+                // Set the artwork source
                 artwork.setAttribute('src', artworkUrl);
-                artwork.setAttribute('position', `0 0 -1`); // Center position in front of the camera
-                artwork.setAttribute('scale', `${scale} ${scale} ${scale}`);
-                artwork.setAttribute('rotation', '0 0 0');
-                document.getElementById('artwork-container').appendChild(artwork);
+                
+                // Calculate aspect ratio based on screen dimensions
+                const screenAspect = window.innerHeight / window.innerWidth;
+                const baseScale = 1;
+                
+                // Set initial scale maintaining portrait aspect ratio
+                artwork.setAttribute('width', baseScale);
+                artwork.setAttribute('height', baseScale * screenAspect);
+                
+                // Center positioning
+                artwork.setAttribute('position', '0 0.1 0');
+                
+                // Add load event listener
+                artwork.addEventListener('loaded', function() {
+                    const img = artwork.getAttribute('src');
+                    if (img) {
+                        const image = new Image();
+                        image.onload = function() {
+                            const imgAspect = this.height / this.width;
+                            // Adjust scale to maintain image aspect ratio
+                            artwork.setAttribute('width', baseScale);
+                            artwork.setAttribute('height', baseScale * imgAspect);
+                        };
+                        image.src = img;
+                    }
+                });
             }
 
-            // Event listener for placing artwork on touch
-            document.querySelector('a-scene').addEventListener('click', function(event) {
-                // Get the camera's position
-                const camera = document.querySelector('a-camera');
-                const cameraPosition = camera.getAttribute('position');
-
-                // Calculate the position in front of the camera based on touch coordinates
-                const touchX = (event.clientX / window.innerWidth) * 2 - 1; // Normalize to -1 to 1
-                const touchY = -(event.clientY / window.innerHeight) * 2 + 1; // Normalize to -1 to 1
-
-                // Set the z position to be in front of the camera
-                const position = {
-                    x: touchX,
-                    y: touchY,
-                    z: cameraPosition.z - 1 // Place it 1 unit in front of the camera
-                };
-
-                // Create artwork at the calculated position
-                createArtworkAtPosition(`${position.x} ${position.y} ${position.z}`);
-            });
-
-            function createArtworkAtPosition(position) {
-                if (artwork) {
-                    artwork.setAttribute('position', position); // Update position
-                }
-            }
-
-            // Size controls
+            // Modified size controls for portrait mode
             document.getElementById('resize-up').addEventListener('click', function() {
                 if (artwork) {
                     scale *= 1.2;
-                    artwork.setAttribute('scale', `${scale} ${scale} ${scale}`);
+                    const currentWidth = artwork.getAttribute('width');
+                    const currentHeight = artwork.getAttribute('height');
+                    artwork.setAttribute('width', currentWidth * 1.2);
+                    artwork.setAttribute('height', currentHeight * 1.2);
                 }
             });
 
             document.getElementById('resize-down').addEventListener('click', function() {
                 if (artwork) {
                     scale *= 0.8;
-                    artwork.setAttribute('scale', `${scale} ${scale} ${scale}`);
+                    const currentWidth = artwork.getAttribute('width');
+                    const currentHeight = artwork.getAttribute('height');
+                    artwork.setAttribute('width', currentWidth * 0.8);
+                    artwork.setAttribute('height', currentHeight * 0.8);
                 }
             });
 
-            // Rotation control
-            document.getElementById('rotate-btn').addEventListener('click', function() {
-                if (artwork) {
-                    rotation += 45;
-                    artwork.setAttribute('rotation', `0 ${rotation} 0`);
-                }
-            });
-
-            // Reset position
+            // Reset position maintaining portrait orientation
             document.getElementById('reset-btn').addEventListener('click', function() {
                 if (artwork) {
-                    artwork.setAttribute('position', `0 0 -1`); // Reset to center
-                    artwork.setAttribute('rotation', '0 0 0');
+                    artwork.setAttribute('position', '0 0.1 0');
+                    artwork.setAttribute('rotation', '-90 0 0');
                     scale = 1;
                     rotation = 0;
-                    artwork.setAttribute('scale', `${scale} ${scale} ${scale}`);
+                    initializeArtwork(); // Reset to initial portrait sizing
                 }
             });
 
-            // Prevent zoom
+            // Prevent zoom and maintain portrait orientation
             document.addEventListener('touchmove', function(e) {
                 if (e.scale !== 1) {
                     e.preventDefault();
